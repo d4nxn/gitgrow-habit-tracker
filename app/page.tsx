@@ -93,7 +93,7 @@ export default function Home() {
           <div className="habitHead">HABIT</div>{week.map(d => <div className="dayHead" key={key(d)}><span>{new Intl.DateTimeFormat("en", { weekday: "short" }).format(d).slice(0,2)}</span><b className={key(d) === today ? "activeDay" : ""}>{d.getDate()}</b></div>)}<div />
           {visible.map(h => <div className="weekRow" key={h.id}>
             <button className="habitName" onClick={() => openEdit(h)}><span style={{ background: h.color + "22", color: h.color }}>{h.icon}</span><div><b>{h.name}</b><small>{h.category}</small></div></button>
-            {week.map(d => { const done = h.days.includes(key(d)); return <button aria-label={`${h.name}, ${key(d)}`} className={`check ${done ? "done" : ""}`} style={{ "--check-color": h.color } as React.CSSProperties} onClick={() => toggle(h.id, key(d))} key={key(d)}>{done && "✓"}</button> })}
+            {week.map(d => { const done = h.days.includes(key(d)); return <button aria-label={`${h.name}, ${key(d)}`} className={`check ${done ? "done" : ""}`} style={{ "--check-color": h.color } as React.CSSProperties} onClick={() => toggle(h.id, key(d))} key={key(d)} /> })}
             <div className="streak">🔥 <b>{streak(h.days)}</b></div>
           </div>)}
         </div>
