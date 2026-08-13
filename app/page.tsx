@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 type Habit = { id: string; name: string; category: string; icon: string; color: string; days: string[] };
 
-const CATEGORIES = ["Здоровье", "Развитие", "Творчество", "Продуктивность", "Другое"];
+const CATEGORIES = ["Health", "Growth", "Creativity", "Productivity", "Other"];
+const CATEGORY_TRANSLATIONS: Record<string, string> = { "Здоровье": "Health", "Развитие": "Growth", "Творчество": "Creativity", "Продуктивность": "Productivity", "Другое": "Other" };
+const HABIT_TRANSLATIONS: Record<string, string> = { "Пить воду": "Drink water", "Читать 20 минут": "Read for 20 minutes", "Пробежка": "Go for a run" };
 const COLORS = ["#39d353", "#58a6ff", "#bc8cff", "#f2cc60", "#f778ba", "#ff7b72"];
 const ICONS = ["💧", "📚", "🏃", "🧘", "🎯", "✍️", "💪", "🌿", "🧠", "🎸", "☀️", "😴"];
 const DAY = 86400000;
@@ -14,9 +16,9 @@ function addDays(date: Date, amount: number) { return new Date(date.getTime() + 
 function startOfDay(date = new Date()) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 
 const seed: Habit[] = [
-  { id: "water", name: "Пить воду", category: "Здоровье", icon: "💧", color: "#58a6ff", days: [] },
-  { id: "read", name: "Читать 20 минут", category: "Развитие", icon: "📚", color: "#bc8cff", days: [] },
-  { id: "run", name: "Пробежка", category: "Здоровье", icon: "🏃", color: "#39d353", days: [] },
+  { id: "water", name: "Drink water", category: "Health", icon: "💧", color: "#58a6ff", days: [] },
+  { id: "read", name: "Read for 20 minutes", category: "Growth", icon: "📚", color: "#bc8cff", days: [] },
+  { id: "run", name: "Go for a run", category: "Health", icon: "🏃", color: "#39d353", days: [] },
 ];
 
 function makeSeed() {
@@ -34,19 +36,20 @@ function streak(days: string[]) {
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [ready, setReady] = useState(false);
-  const [filter, setFilter] = useState("Все привычки");
+  const [filter, setFilter] = useState("All habits");
   const [modal, setModal] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", category: "Здоровье", icon: "🎯", color: COLORS[0] });
+  const [form, setForm] = useState({ name: "", category: "Health", icon: "🎯", color: COLORS[0] });
   const today = key(startOfDay());
 
   useEffect(() => {
     const stored = localStorage.getItem("gitgrow-habits");
-    setHabits(stored ? JSON.parse(stored) : makeSeed()); setReady(true);
+    const loaded: Habit[] = stored ? JSON.parse(stored) : makeSeed();
+    setHabits(loaded.map(h => ({ ...h, name: HABIT_TRANSLATIONS[h.name] || h.name, category: CATEGORY_TRANSLATIONS[h.category] || h.category }))); setReady(true);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem("gitgrow-habits", JSON.stringify(habits)); }, [habits, ready]);
 
-  const visible = filter === "Все привычки" ? habits : habits.filter(h => h.category === filter);
+  const visible = filter === "All habits" ? habits : habits.filter(h => h.category === filter);
   const days = useMemo(() => Array.from({ length: 364 }, (_, i) => addDays(startOfDay(), i - 363)), []);
   const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfDay(), i - 6)), []);
   const totalDone = habits.reduce((sum, h) => sum + h.days.length, 0);
@@ -56,7 +59,7 @@ export default function Home() {
   function toggle(id: string, date = today) {
     setHabits(old => old.map(h => h.id === id ? { ...h, days: h.days.includes(date) ? h.days.filter(d => d !== date) : [...h.days, date] } : h));
   }
-  function openNew() { setSelected(null); setForm({ name: "", category: "Здоровье", icon: "🎯", color: COLORS[0] }); setModal(true); }
+  function openNew() { setSelected(null); setForm({ name: "", category: "Health", icon: "🎯", color: COLORS[0] }); setModal(true); }
   function openEdit(h: Habit) { setSelected(h.id); setForm({ name: h.name, category: h.category, icon: h.icon, color: h.color }); setModal(true); }
   function save() {
     if (!form.name.trim()) return;
@@ -66,51 +69,51 @@ export default function Home() {
   }
   function remove() { if (selected) { setHabits(old => old.filter(h => h.id !== selected)); setModal(false); } }
 
-  if (!ready) return <main className="loading">Загружаем прогресс…</main>;
+  if (!ready) return <main className="loading">Loading your progress…</main>;
   return <main>
     <header>
       <div className="brand"><span className="mark">◆</span><span>GitGrow</span></div>
-      <button className="newButton" onClick={openNew}><span>＋</span> Новая привычка</button>
+      <button className="newButton" onClick={openNew}><span>＋</span> New habit</button>
     </header>
     <div className="shell">
       <section className="intro">
-        <div><p className="eyebrow">ТВОЙ ПРОГРЕСС</p><h1>Добрый вечер <span>👋</span></h1><p>Маленькие шаги каждый день превращаются в большие перемены.</p></div>
-        <div className="dateBadge"><b>{new Intl.DateTimeFormat("ru", { day: "numeric", month: "long" }).format(new Date())}</b><span>{new Intl.DateTimeFormat("ru", { weekday: "long" }).format(new Date())}</span></div>
+        <div><p className="eyebrow">YOUR PROGRESS</p><h1>Good evening <span>👋</span></h1><p>Small steps, repeated daily, become meaningful change.</p></div>
+        <div className="dateBadge"><b>{new Intl.DateTimeFormat("en", { day: "numeric", month: "long" }).format(new Date())}</b><span>{new Intl.DateTimeFormat("en", { weekday: "long" }).format(new Date())}</span></div>
       </section>
 
       <section className="stats">
-        <article><span className="statIcon green">↗</span><div><small>ВСЕГО ОТМЕТОК</small><strong>{totalDone}</strong><em>за всё время</em></div></article>
-        <article><span className="statIcon orange">🔥</span><div><small>ЛУЧШИЙ СТРИК</small><strong>{bestStreak} <i>дн.</i></strong><em>продолжай в том же духе</em></div></article>
-        <article><span className="statIcon blue">✓</span><div><small>СЕГОДНЯ</small><strong>{todayDone}<i>/{habits.length}</i></strong><em>{habits.length === todayDone ? "всё выполнено!" : "ещё немного"}</em></div></article>
+        <article><span className="statIcon green">↗</span><div><small>TOTAL CHECK-INS</small><strong>{totalDone}</strong><em>all time</em></div></article>
+        <article><span className="statIcon orange">🔥</span><div><small>BEST STREAK</small><strong>{bestStreak} <i>days</i></strong><em>keep it going</em></div></article>
+        <article><span className="statIcon blue">✓</span><div><small>TODAY</small><strong>{todayDone}<i>/{habits.length}</i></strong><em>{habits.length === todayDone ? "all done" : "keep going"}</em></div></article>
       </section>
 
       <section className="weekCard">
-        <div className="sectionTitle"><div><h2>Эта неделя</h2><p>{todayDone === habits.length && habits.length ? "Идеальный день — так держать!" : "Отмечай выполненное и расти каждый день"}</p></div><span className="percent">{habits.length ? Math.round(habits.reduce((s,h) => s + week.filter(d => h.days.includes(key(d))).length, 0)/(habits.length*7)*100) : 0}%</span></div>
+        <div className="sectionTitle"><div><h2>This week</h2><p>{todayDone === habits.length && habits.length ? "A perfect day — keep it up!" : "Check in and build momentum every day"}</p></div><span className="percent">{habits.length ? Math.round(habits.reduce((s,h) => s + week.filter(d => h.days.includes(key(d))).length, 0)/(habits.length*7)*100) : 0}%</span></div>
         <div className="weekGrid">
-          <div className="habitHead">ПРИВЫЧКА</div>{week.map(d => <div className="dayHead" key={key(d)}><span>{new Intl.DateTimeFormat("ru", { weekday: "short" }).format(d).slice(0,2)}</span><b className={key(d) === today ? "activeDay" : ""}>{d.getDate()}</b></div>)}<div />
+          <div className="habitHead">HABIT</div>{week.map(d => <div className="dayHead" key={key(d)}><span>{new Intl.DateTimeFormat("en", { weekday: "short" }).format(d).slice(0,2)}</span><b className={key(d) === today ? "activeDay" : ""}>{d.getDate()}</b></div>)}<div />
           {visible.map(h => <div className="weekRow" key={h.id}>
             <button className="habitName" onClick={() => openEdit(h)}><span style={{ background: h.color + "22", color: h.color }}>{h.icon}</span><div><b>{h.name}</b><small>{h.category}</small></div></button>
             {week.map(d => { const done = h.days.includes(key(d)); return <button aria-label={`${h.name}, ${key(d)}`} className={`check ${done ? "done" : ""}`} style={done ? { background: h.color, borderColor: h.color } : {}} onClick={() => toggle(h.id, key(d))} key={key(d)}>{done && "✓"}</button> })}
             <div className="streak">🔥 <b>{streak(h.days)}</b></div>
           </div>)}
         </div>
-        {!visible.length && <div className="empty">Здесь пока пусто. Создай первую привычку — это займёт пару секунд.</div>}
-        <button className="addRow" onClick={openNew}>＋ Добавить привычку</button>
+        {!visible.length && <div className="empty">Nothing here yet. Create your first habit in a few seconds.</div>}
+        <button className="addRow" onClick={openNew}>＋ Add habit</button>
       </section>
 
       <section className="activityCard">
-        <div className="sectionTitle"><div><h2>Активность</h2><p>{totalDone} выполнений за последний год</p></div><div className="legend">Меньше <i /> <i /><i /><i /><i /> Больше</div></div>
-        <div className="heatWrap"><div className="months"><span>Сен</span><span>Окт</span><span>Ноя</span><span>Дек</span><span>Янв</span><span>Фев</span><span>Мар</span><span>Апр</span><span>Май</span><span>Июн</span><span>Июл</span><span>Авг</span></div>
+        <div className="sectionTitle"><div><h2>Activity</h2><p>{totalDone} check-ins in the last year</p></div><div className="legend">Less <i /> <i /><i /><i /><i /> More</div></div>
+        <div className="heatWrap"><div className="months"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
           <div className="heatmap">{days.map(d => { const n = habits.filter(h => h.days.includes(key(d))).length; return <span title={`${key(d)}: ${n}`} key={key(d)} data-level={n ? Math.min(4, Math.ceil(n / Math.max(1, habits.length) * 4)) : 0} /> })}</div>
         </div>
       </section>
 
-      <section className="habitsSection"><div className="sectionTitle"><div><h2>Мои привычки</h2><p>Управляй тем, что хочешь улучшить</p></div><select value={filter} onChange={e => setFilter(e.target.value)}><option>Все привычки</option>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-        <div className="habitCards">{visible.map(h => <article key={h.id} onClick={() => openEdit(h)}><div className="habitTop"><span style={{ background: h.color + "20" }}>{h.icon}</span><button aria-label="Редактировать">•••</button></div><h3>{h.name}</h3><p><i style={{ background: h.color }} /> {h.category}</p><div className="habitBottom"><b>🔥 {streak(h.days)} дней</b><span>{h.days.length} отметок</span></div></article>)}<button className="createCard" onClick={openNew}><span>＋</span><b>Создать привычку</b><small>Начни новый стрик сегодня</small></button></div>
+      <section className="habitsSection"><div className="sectionTitle"><div><h2>My habits</h2><p>Manage what you want to improve</p></div><select value={filter} onChange={e => setFilter(e.target.value)}><option>All habits</option>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+        <div className="habitCards">{visible.map(h => <article key={h.id} onClick={() => openEdit(h)}><div className="habitTop"><span style={{ background: h.color + "20" }}>{h.icon}</span><button aria-label="Edit">•••</button></div><h3>{h.name}</h3><p><i style={{ background: h.color }} /> {h.category}</p><div className="habitBottom"><b>🔥 {streak(h.days)} days</b><span>{h.days.length} check-ins</span></div></article>)}<button className="createCard" onClick={openNew}><span>＋</span><b>Create a habit</b><small>Start a new streak today</small></button></div>
       </section>
     </div>
-    <footer><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><p>Расти каждый день, по одному коммиту за раз.</p><span>Все данные хранятся на этом устройстве</span></footer>
+    <footer><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><p>Grow every day, one commit at a time.</p><span>All data stays on this device</span></footer>
 
-    {modal && <div className="overlay" onMouseDown={e => e.target === e.currentTarget && setModal(false)}><div className="modal" role="dialog" aria-modal="true"><button className="close" onClick={() => setModal(false)}>×</button><p className="eyebrow">{selected ? "НАСТРОЙКИ" : "НОВАЯ ПРИВЫЧКА"}</p><h2>{selected ? "Редактировать привычку" : "Что будем развивать?"}</h2><label>Название<input autoFocus value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="Например, читать 20 минут" onKeyDown={e => e.key === "Enter" && save()} /></label><label>Категория<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label><label>Иконка<div className="iconPicker">{ICONS.map(icon => <button className={form.icon === icon ? "chosen" : ""} onClick={() => setForm({...form, icon})} key={icon}>{icon}</button>)}</div></label><label>Цвет<div className="colorPicker">{COLORS.map(color => <button aria-label={color} className={form.color === color ? "chosen" : ""} style={{background:color}} onClick={() => setForm({...form,color})} key={color} />)}</div></label><div className="modalActions">{selected && <button className="delete" onClick={remove}>Удалить</button>}<button className="cancel" onClick={() => setModal(false)}>Отмена</button><button className="save" onClick={save}>{selected ? "Сохранить" : "Создать"}</button></div></div></div>}
+    {modal && <div className="overlay" onMouseDown={e => e.target === e.currentTarget && setModal(false)}><div className="modal" role="dialog" aria-modal="true"><button className="close" onClick={() => setModal(false)}>×</button><p className="eyebrow">{selected ? "SETTINGS" : "NEW HABIT"}</p><h2>{selected ? "Edit habit" : "What will you build?"}</h2><label>Name<input autoFocus value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="For example, read for 20 minutes" onKeyDown={e => e.key === "Enter" && save()} /></label><label>Category<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label><label>Icon<div className="iconPicker">{ICONS.map(icon => <button className={form.icon === icon ? "chosen" : ""} onClick={() => setForm({...form, icon})} key={icon}>{icon}</button>)}</div></label><label>Color<div className="colorPicker">{COLORS.map(color => <button aria-label={color} className={form.color === color ? "chosen" : ""} style={{background:color}} onClick={() => setForm({...form,color})} key={color} />)}</div></label><div className="modalActions">{selected && <button className="delete" onClick={remove}>Delete</button>}<button className="cancel" onClick={() => setModal(false)}>Cancel</button><button className="save" onClick={save}>{selected ? "Save" : "Create"}</button></div></div></div>}
   </main>;
 }
