@@ -16,3 +16,7 @@ footer{border-top:1px solid #181818;min-height:96px;display:flex;align-items:cen
 @media(max-width:540px){.stats article{height:74px}}
 .stats strong{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.stats strong i{display:inline-block;line-height:30px;margin:0;white-space:nowrap;vertical-align:middle}
 @media(max-width:540px){.stats strong{display:inline-flex;align-items:center;gap:2px;height:24px;line-height:24px;margin-top:7px}.stats strong i{line-height:24px}}
+
+/* Balanced secondary type scale */
+.intro>div>p:last-child,.sectionTitle p{font-size:13px;line-height:1.55}.dateBadge{font-size:13px}.stats small{font-size:10px}.stats strong i{font-size:12px}.stats em{font-size:11px}.habitName small{font-size:10px}.legend{font-size:10px}.months{font-size:10px}.habitCards article>p{font-size:10px}.habitBottom{font-size:10px}.createCard b{font-size:12px}.createCard small{font-size:10px}.modal label{font-size:12px}footer{font-size:11px}
+@media(max-width:540px){.intro>div>p:last-child{font-size:12px}.sectionTitle p{font-size:11px}.stats small{font-size:8px}.stats strong i{font-size:9px}.habitCards article>p,.habitBottom{font-size:10px}footer{font-size:11px}}
