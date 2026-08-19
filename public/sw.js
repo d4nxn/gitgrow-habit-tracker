@@ -1,4 +1,4 @@
-const CACHE = "gitgrow-v5";
+const CACHE = "gitgrow-v6";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/fonts/Gona.otf"];
 
 self.addEventListener("install", (event) => {

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Habit = { id: string; name: string; category: string; icon: string; color: string; days: string[] };
-type Tab = "today" | "activity" | "habits";
+type Tab = "today" | "activity" | "habits" | "profile";
+type Profile = { name: string; age: string; weight: string; height: string; goal: string };
 
 const CATEGORIES = ["Health", "Growth", "Creativity", "Productivity", "Other"];
 const CATEGORY_TRANSLATIONS: Record<string, string> = { "Здоровье": "Health", "Развитие": "Growth", "Творчество": "Creativity", "Продуктивность": "Productivity", "Другое": "Other" };
@@ -43,12 +44,16 @@ export default function Home() {
   const [closing, setClosing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", category: "Health", icon: "🎯", color: COLORS[0] });
+  const [profile, setProfile] = useState<Profile>({ name: "", age: "", weight: "", height: "", goal: "" });
+  const [profileSaved, setProfileSaved] = useState(false);
   const heatWrapRef = useRef<HTMLDivElement>(null);
   const today = key(startOfDay());
 
   useEffect(() => {
     const stored = localStorage.getItem("gitgrow-habits");
     const loaded: Habit[] = stored ? JSON.parse(stored) : makeSeed();
+    const storedProfile = localStorage.getItem("gitgrow-profile");
+    if (storedProfile) setProfile(JSON.parse(storedProfile));
     setHabits(loaded.map(h => ({ ...h, name: HABIT_TRANSLATIONS[h.name] || h.name, category: CATEGORY_TRANSLATIONS[h.category] || h.category }))); setReady(true);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem("gitgrow-habits", JSON.stringify(habits)); }, [habits, ready]);
@@ -65,8 +70,9 @@ export default function Home() {
     if (activeTab !== "activity") return;
     requestAnimationFrame(() => {
       if (heatWrapRef.current) heatWrapRef.current.scrollLeft = heatWrapRef.current.scrollWidth;
+      document.querySelectorAll<HTMLElement>(".habitHeatWrap").forEach(element => { element.scrollLeft = element.scrollWidth; });
     });
-  }, [activeTab]);
+  }, [activeTab, habits.length]);
 
   const visible = filter === "All habits" ? habits : habits.filter(h => h.category === filter);
   const days = useMemo(() => Array.from({ length: 364 }, (_, i) => addDays(startOfDay(), i - 363)), []);
@@ -92,6 +98,11 @@ export default function Home() {
     closeModal();
   }
   function remove() { if (selected) { setHabits(old => old.filter(h => h.id !== selected)); closeModal(); } }
+  function saveProfile() {
+    localStorage.setItem("gitgrow-profile", JSON.stringify(profile));
+    setProfileSaved(true);
+    window.setTimeout(() => setProfileSaved(false), 1800);
+  }
 
   if (!ready) return <main className="loading">Loading your progress…</main>;
   return <main>
@@ -104,6 +115,7 @@ export default function Home() {
         <button className={activeTab === "today" ? "active" : ""} onClick={() => setActiveTab("today")}>Today</button>
         <button className={activeTab === "activity" ? "active" : ""} onClick={() => setActiveTab("activity")}>Activity</button>
         <button className={activeTab === "habits" ? "active" : ""} onClick={() => setActiveTab("habits")}>Habits</button>
+        <button className={activeTab === "profile" ? "active" : ""} onClick={() => setActiveTab("profile")}>Profile</button>
       </nav>
 
       {activeTab === "today" && <>
@@ -138,10 +150,27 @@ export default function Home() {
         <div className="heatWrap" ref={heatWrapRef}><div className="months"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
           <div className="heatmap">{days.map(d => { const n = habits.filter(h => h.days.includes(key(d))).length; return <span title={`${key(d)}: ${n}`} key={key(d)} data-level={n ? Math.min(4, Math.ceil(n / Math.max(1, habits.length) * 4)) : 0} /> })}</div>
         </div>
+        <div className="habitActivityHeader"><h2>By habit</h2><p>Consistency for each habit over the last year</p></div>
+        <div className="habitActivityList">{habits.map(h => <article className="habitActivity" key={h.id}>
+          <div className="habitActivityTitle"><span style={{ background: h.color + "20" }}>{h.icon}</span><div><b>{h.name}</b><small>{h.days.length} check-ins · {streak(h.days)} day streak</small></div></div>
+          <div className="habitHeatWrap"><div className="habitHeatmap">{days.map(d => <span title={`${key(d)}: ${h.days.includes(key(d)) ? "done" : "not done"}`} key={key(d)} style={h.days.includes(key(d)) ? { background: h.color } : undefined} />)}</div></div>
+        </article>)}</div>
       </section>}
 
       {activeTab === "habits" && <section className="habitsSection tabPanel"><div className="sectionTitle"><div><h2>My habits</h2><p>Manage what you want to improve</p></div><select value={filter} onChange={e => setFilter(e.target.value)}><option>All habits</option>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
         <div className="habitCards">{visible.map(h => <article key={h.id} onClick={() => openEdit(h)}><div className="habitTop"><span style={{ background: h.color + "20" }}>{h.icon}</span><button aria-label="Edit">•••</button></div><h3>{h.name}</h3><p><i style={{ background: h.color }} /> {h.category}</p><div className="habitBottom"><b>🔥 {streak(h.days)} days</b><span>{h.days.length} check-ins</span></div></article>)}<button className="createCard" onClick={openNew}><span>＋</span><b>Create a habit</b><small>Start a new streak today</small></button></div>
+      </section>}
+
+      {activeTab === "profile" && <section className="profileSection tabPanel">
+        <div className="profileHero"><div className="avatar">{profile.name.trim() ? profile.name.trim()[0].toUpperCase() : "G"}</div><div><p className="eyebrow">YOUR PROFILE</p><h1>{profile.name || "Your details"}</h1><p>Keep your personal baseline in one place.</p></div></div>
+        <div className="profileGrid">
+          <label className="wide">Name<input value={profile.name} onChange={e => setProfile({...profile, name:e.target.value})} placeholder="Your name" /></label>
+          <label>Age<input type="number" inputMode="numeric" value={profile.age} onChange={e => setProfile({...profile, age:e.target.value})} placeholder="Years" /></label>
+          <label>Weight<input type="number" inputMode="decimal" value={profile.weight} onChange={e => setProfile({...profile, weight:e.target.value})} placeholder="kg" /></label>
+          <label>Height<input type="number" inputMode="numeric" value={profile.height} onChange={e => setProfile({...profile, height:e.target.value})} placeholder="cm" /></label>
+          <label className="wide">Main goal<input value={profile.goal} onChange={e => setProfile({...profile, goal:e.target.value})} placeholder="What are you working toward?" /></label>
+        </div>
+        <div className="profileActions"><span className={profileSaved ? "visible" : ""}>Saved on this device</span><button className="save" onClick={saveProfile}>Save profile</button></div>
       </section>}
     </div>
     <footer><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><p>Grow every day, one commit at a time.</p><span>All data stays on this device</span></footer>
