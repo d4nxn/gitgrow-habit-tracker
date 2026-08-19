@@ -48,6 +48,15 @@ export default function Home() {
     setHabits(loaded.map(h => ({ ...h, name: HABIT_TRANSLATIONS[h.name] || h.name, category: CATEGORY_TRANSLATIONS[h.category] || h.category }))); setReady(true);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem("gitgrow-habits", JSON.stringify(habits)); }, [habits, ready]);
+  useEffect(() => {
+    document.body.style.overflow = modal ? "hidden" : "";
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setModal(false);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [modal]);
 
   const visible = filter === "All habits" ? habits : habits.filter(h => h.category === filter);
   const days = useMemo(() => Array.from({ length: 364 }, (_, i) => addDays(startOfDay(), i - 363)), []);
@@ -114,6 +123,17 @@ export default function Home() {
     </div>
     <footer><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><p>Grow every day, one commit at a time.</p><span>All data stays on this device</span></footer>
 
-    {modal && <div className="overlay" onMouseDown={e => e.target === e.currentTarget && setModal(false)}><div className="modal" role="dialog" aria-modal="true"><button className="close" onClick={() => setModal(false)}>×</button><p className="eyebrow">{selected ? "SETTINGS" : "NEW HABIT"}</p><h2>{selected ? "Edit habit" : "What will you build?"}</h2><label>Name<input autoFocus value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="For example, read for 20 minutes" onKeyDown={e => e.key === "Enter" && save()} /></label><label>Category<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label><label>Icon<div className="iconPicker">{ICONS.map(icon => <button className={form.icon === icon ? "chosen" : ""} onClick={() => setForm({...form, icon})} key={icon}>{icon}</button>)}</div></label><label>Color<div className="colorPicker">{COLORS.map(color => <button aria-label={color} className={form.color === color ? "chosen" : ""} style={{background:color}} onClick={() => setForm({...form,color})} key={color} />)}</div></label><div className="modalActions">{selected && <button className="delete" onClick={remove}>Delete</button>}<button className="cancel" onClick={() => setModal(false)}>Cancel</button><button className="save" onClick={save}>{selected ? "Save" : "Create"}</button></div></div></div>}
+    {modal && <div className="overlay"><div className="modal" role="dialog" aria-modal="true" aria-labelledby="habit-dialog-title">
+      <button className="close" aria-label="Close" onClick={() => setModal(false)}>×</button>
+      <div className="modalInner">
+        <p className="eyebrow">{selected ? "SETTINGS" : "NEW HABIT"}</p>
+        <h2 id="habit-dialog-title">{selected ? "Edit habit" : "What will you build?"}</h2>
+        <label>Name<input value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="For example, read for 20 minutes" onKeyDown={e => e.key === "Enter" && save()} /></label>
+        <label>Category<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
+        <label>Icon<div className="iconPicker">{ICONS.map(icon => <button className={form.icon === icon ? "chosen" : ""} onClick={() => setForm({...form, icon})} key={icon}>{icon}</button>)}</div></label>
+        <label>Color<div className="colorPicker">{COLORS.map(color => <button aria-label={color} className={form.color === color ? "chosen" : ""} style={{background:color}} onClick={() => setForm({...form,color})} key={color} />)}</div></label>
+        <div className="modalActions">{selected && <button className="delete" onClick={remove}>Delete</button>}<button className="cancel" onClick={() => setModal(false)}>Cancel</button><button className="save" onClick={save}>{selected ? "Save" : "Create"}</button></div>
+      </div>
+    </div></div>}
   </main>;
 }
