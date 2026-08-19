@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Habit = { id: string; name: string; category: string; icon: string; color: string; days: string[] };
+type Tab = "today" | "activity" | "habits";
 
 const CATEGORIES = ["Health", "Growth", "Creativity", "Productivity", "Other"];
 const CATEGORY_TRANSLATIONS: Record<string, string> = { "Здоровье": "Health", "Развитие": "Growth", "Творчество": "Creativity", "Продуктивность": "Productivity", "Другое": "Other" };
@@ -37,9 +38,12 @@ export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState("All habits");
+  const [activeTab, setActiveTab] = useState<Tab>("today");
   const [modal, setModal] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", category: "Health", icon: "🎯", color: COLORS[0] });
+  const heatWrapRef = useRef<HTMLDivElement>(null);
   const today = key(startOfDay());
 
   useEffect(() => {
@@ -50,13 +54,19 @@ export default function Home() {
   useEffect(() => { if (ready) localStorage.setItem("gitgrow-habits", JSON.stringify(habits)); }, [habits, ready]);
   useEffect(() => {
     document.body.style.overflow = modal ? "hidden" : "";
-    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setModal(false);
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && closeModal();
     window.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [modal]);
+  useEffect(() => {
+    if (activeTab !== "activity") return;
+    requestAnimationFrame(() => {
+      if (heatWrapRef.current) heatWrapRef.current.scrollLeft = heatWrapRef.current.scrollWidth;
+    });
+  }, [activeTab]);
 
   const visible = filter === "All habits" ? habits : habits.filter(h => h.category === filter);
   const days = useMemo(() => Array.from({ length: 364 }, (_, i) => addDays(startOfDay(), i - 363)), []);
@@ -68,15 +78,20 @@ export default function Home() {
   function toggle(id: string, date = today) {
     setHabits(old => old.map(h => h.id === id ? { ...h, days: h.days.includes(date) ? h.days.filter(d => d !== date) : [...h.days, date] } : h));
   }
-  function openNew() { setSelected(null); setForm({ name: "", category: "Health", icon: "🎯", color: COLORS[0] }); setModal(true); }
-  function openEdit(h: Habit) { setSelected(h.id); setForm({ name: h.name, category: h.category, icon: h.icon, color: h.color }); setModal(true); }
+  function openNew() { setClosing(false); setSelected(null); setForm({ name: "", category: "Health", icon: "🎯", color: COLORS[0] }); setModal(true); }
+  function openEdit(h: Habit) { setClosing(false); setSelected(h.id); setForm({ name: h.name, category: h.category, icon: h.icon, color: h.color }); setModal(true); }
+  function closeModal() {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(() => { setModal(false); setClosing(false); }, 520);
+  }
   function save() {
     if (!form.name.trim()) return;
     if (selected) setHabits(old => old.map(h => h.id === selected ? { ...h, ...form, name: form.name.trim() } : h));
     else setHabits(old => [...old, { ...form, name: form.name.trim(), id: crypto.randomUUID(), days: [] }]);
-    setModal(false);
+    closeModal();
   }
-  function remove() { if (selected) { setHabits(old => old.filter(h => h.id !== selected)); setModal(false); } }
+  function remove() { if (selected) { setHabits(old => old.filter(h => h.id !== selected)); closeModal(); } }
 
   if (!ready) return <main className="loading">Loading your progress…</main>;
   return <main>
@@ -85,6 +100,13 @@ export default function Home() {
       <button className="newButton" onClick={openNew}><span>＋</span> New habit</button>
     </header>
     <div className="shell">
+      <nav className="tabBar" aria-label="Main sections">
+        <button className={activeTab === "today" ? "active" : ""} onClick={() => setActiveTab("today")}>Today</button>
+        <button className={activeTab === "activity" ? "active" : ""} onClick={() => setActiveTab("activity")}>Activity</button>
+        <button className={activeTab === "habits" ? "active" : ""} onClick={() => setActiveTab("habits")}>Habits</button>
+      </nav>
+
+      {activeTab === "today" && <>
       <section className="intro">
         <div><p className="eyebrow">YOUR PROGRESS</p><h1>Good evening <span>👋</span></h1><p>Small steps, repeated daily, become meaningful change.</p></div>
         <div className="dateBadge"><b>{new Intl.DateTimeFormat("en", { day: "numeric", month: "long" }).format(new Date())}</b><span>{new Intl.DateTimeFormat("en", { weekday: "long" }).format(new Date())}</span></div>
@@ -109,22 +131,23 @@ export default function Home() {
         {!visible.length && <div className="empty">Nothing here yet. Create your first habit in a few seconds.</div>}
         <button className="addRow" onClick={openNew}>＋ Add habit</button>
       </section>
+      </>}
 
-      <section className="activityCard">
+      {activeTab === "activity" && <section className="activityCard tabPanel">
         <div className="sectionTitle"><div><h2>Activity</h2><p>{totalDone} check-ins in the last year</p></div><div className="legend">Less <i /> <i /><i /><i /><i /> More</div></div>
-        <div className="heatWrap"><div className="months"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
+        <div className="heatWrap" ref={heatWrapRef}><div className="months"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span></div>
           <div className="heatmap">{days.map(d => { const n = habits.filter(h => h.days.includes(key(d))).length; return <span title={`${key(d)}: ${n}`} key={key(d)} data-level={n ? Math.min(4, Math.ceil(n / Math.max(1, habits.length) * 4)) : 0} /> })}</div>
         </div>
-      </section>
+      </section>}
 
-      <section className="habitsSection"><div className="sectionTitle"><div><h2>My habits</h2><p>Manage what you want to improve</p></div><select value={filter} onChange={e => setFilter(e.target.value)}><option>All habits</option>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+      {activeTab === "habits" && <section className="habitsSection tabPanel"><div className="sectionTitle"><div><h2>My habits</h2><p>Manage what you want to improve</p></div><select value={filter} onChange={e => setFilter(e.target.value)}><option>All habits</option>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
         <div className="habitCards">{visible.map(h => <article key={h.id} onClick={() => openEdit(h)}><div className="habitTop"><span style={{ background: h.color + "20" }}>{h.icon}</span><button aria-label="Edit">•••</button></div><h3>{h.name}</h3><p><i style={{ background: h.color }} /> {h.category}</p><div className="habitBottom"><b>🔥 {streak(h.days)} days</b><span>{h.days.length} check-ins</span></div></article>)}<button className="createCard" onClick={openNew}><span>＋</span><b>Create a habit</b><small>Start a new streak today</small></button></div>
-      </section>
+      </section>}
     </div>
     <footer><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><p>Grow every day, one commit at a time.</p><span>All data stays on this device</span></footer>
 
-    {modal && <div className="overlay"><div className="modal" role="dialog" aria-modal="true" aria-labelledby="habit-dialog-title">
-      <button className="close" aria-label="Close" onClick={() => setModal(false)}>×</button>
+    {modal && <div className={`overlay ${closing ? "closing" : ""}`}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="habit-dialog-title">
+      <button className="close" aria-label="Close" onClick={closeModal}>×</button>
       <div className="modalInner">
         <p className="eyebrow">{selected ? "SETTINGS" : "NEW HABIT"}</p>
         <h2 id="habit-dialog-title">{selected ? "Edit habit" : "What will you build?"}</h2>
@@ -132,7 +155,7 @@ export default function Home() {
         <label>Category<select value={form.category} onChange={e => setForm({...form, category:e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
         <label>Icon<div className="iconPicker">{ICONS.map(icon => <button className={form.icon === icon ? "chosen" : ""} onClick={() => setForm({...form, icon})} key={icon}>{icon}</button>)}</div></label>
         <label>Color<div className="colorPicker">{COLORS.map(color => <button aria-label={color} className={form.color === color ? "chosen" : ""} style={{background:color}} onClick={() => setForm({...form,color})} key={color} />)}</div></label>
-        <div className="modalActions">{selected && <button className="delete" onClick={remove}>Delete</button>}<button className="cancel" onClick={() => setModal(false)}>Cancel</button><button className="save" onClick={save}>{selected ? "Save" : "Create"}</button></div>
+        <div className="modalActions">{selected && <button className="delete" onClick={remove}>Delete</button>}<button className="cancel" onClick={closeModal}>Cancel</button><button className="save" onClick={save}>{selected ? "Save" : "Create"}</button></div>
       </div>
     </div></div>}
   </main>;

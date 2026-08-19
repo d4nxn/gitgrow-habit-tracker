@@ -35,3 +35,14 @@ footer{border-top:1px solid #181818;min-height:96px;display:flex;align-items:cen
 @keyframes dialogFade{from{opacity:0}to{opacity:1}}
 @media(max-width:540px){.modal{width:100vw;height:100dvh;max-height:none;padding:0 18px calc(20px + env(safe-area-inset-bottom));border-radius:0}.modalInner{padding-top:80px}.modal .close{top:calc(14px + env(safe-area-inset-top));right:16px}.modal h2{font-size:27px;margin-bottom:26px}.modal label{font-size:12px;margin-top:19px}.modalActions{position:static;margin-top:30px;padding:0;background:transparent}.modalActions button{min-height:46px}}
 @media(prefers-reduced-motion:reduce){.overlay,.modal{animation:none}}
+
+/* App navigation */
+.tabBar{width:max-content;display:grid;grid-template-columns:repeat(3,auto);gap:4px;margin:0 0 42px;padding:4px;background:#111;border:1px solid #242424;border-radius:11px}.tabBar button{min-width:92px;padding:9px 15px;background:transparent;border:0;border-radius:7px;color:#777;font-size:12px;cursor:pointer;transition:background-color .18s,color .18s}.tabBar button:hover{color:#ccc}.tabBar button.active{background:#f4f4f2;color:#0a0a0a}.tabPanel{min-height:calc(100dvh - 250px);animation:tabEnter .28s ease-out}.check{width:28px;height:28px;min-width:28px;min-height:28px;border-radius:7px}
+@keyframes tabEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Deliberate open and close motion */
+.modal{animation-duration:.58s}.overlay{animation-duration:.32s}.overlay.closing{pointer-events:none;animation:dialogFadeOut .5s ease-in forwards}.overlay.closing .modal{animation:dialogSlideOut .5s cubic-bezier(.64,0,.78,0) forwards}
+@keyframes dialogSlideOut{from{transform:translateY(0)}to{transform:translateY(100%)}}
+@keyframes dialogFadeOut{from{opacity:1}to{opacity:0}}
+
+@media(max-width:540px){.shell{padding-bottom:110px}.tabBar{position:fixed;z-index:8;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));width:auto;height:58px;margin:0;padding:5px;grid-template-columns:repeat(3,1fr);background:#111e;backdrop-filter:blur(18px);box-shadow:0 8px 30px #000;border-radius:14px}.tabBar button{min-width:0;padding:8px 5px;font-size:11px}.tabPanel{min-height:calc(100dvh - 170px)}.check{width:28px;height:28px;min-width:28px;min-height:28px}.weekGrid{grid-template-columns:minmax(100px,1fr) repeat(7,32px)}footer{display:none}}
