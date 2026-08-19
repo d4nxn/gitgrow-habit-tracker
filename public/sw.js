@@ -1,5 +1,5 @@
-const CACHE = "gitgrow-v2";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/fonts/FrizQuadrata.ttf"];
+const CACHE = "gitgrow-v3";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/fonts/Gona.otf"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
