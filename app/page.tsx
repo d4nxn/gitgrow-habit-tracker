@@ -11,6 +11,15 @@ const CATEGORY_TRANSLATIONS: Record<string, string> = { "Здоровье": "Hea
 const HABIT_TRANSLATIONS: Record<string, string> = { "Пить воду": "Drink water", "Читать 20 минут": "Read for 20 minutes", "Пробежка": "Go for a run" };
 const COLORS = ["#39d353", "#58a6ff", "#bc8cff", "#f2cc60", "#f778ba", "#ff7b72"];
 const ICONS = ["💧", "📚", "🏃", "🧘", "🎯", "✍️", "💪", "🌿", "🧠", "🎸", "☀️", "😴"];
+const CONSISTENCY_MESSAGES = [
+  "1% better every day.",
+  "1.01^365 = 37.8 — small gains compound.",
+  "Consistency beats intensity.",
+  "Small actions, repeated, become remarkable results.",
+  "Never miss twice.",
+  "Show up today. Momentum follows.",
+  "Progress is built one check-in at a time.",
+];
 const DAY = 86400000;
 
 function key(date: Date) { return date.toISOString().slice(0, 10); }
@@ -24,8 +33,15 @@ const seed: Habit[] = [
 ];
 
 function makeSeed() {
-  const today = startOfDay();
-  return seed.map((habit, hi) => ({ ...habit, days: Array.from({ length: 70 }, (_, i) => i).filter(i => ((i * 7 + hi * 3) % (hi + 3)) !== 0 && i < 63).map(i => key(addDays(today, -i))) }));
+  return seed.map(habit => ({ ...habit, days: [] }));
+}
+
+function greetingFor(date: Date) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 22) return "Good evening";
+  return "Good night";
 }
 
 function streak(days: string[]) {
@@ -46,6 +62,8 @@ export default function Home() {
   const [form, setForm] = useState({ name: "", category: "Health", icon: "🎯", color: COLORS[0] });
   const [profile, setProfile] = useState<Profile>({ name: "", age: "", weight: "", height: "", goal: "" });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [now, setNow] = useState(new Date(0));
+  const [consistencyMessage, setConsistencyMessage] = useState(CONSISTENCY_MESSAGES[0]);
   const heatWrapRef = useRef<HTMLDivElement>(null);
   const today = key(startOfDay());
 
@@ -54,9 +72,28 @@ export default function Home() {
     const loaded: Habit[] = stored ? JSON.parse(stored) : makeSeed();
     const storedProfile = localStorage.getItem("gitgrow-profile");
     if (storedProfile) setProfile(JSON.parse(storedProfile));
-    setHabits(loaded.map(h => ({ ...h, name: HABIT_TRANSLATIONS[h.name] || h.name, category: CATEGORY_TRANSLATIONS[h.category] || h.category }))); setReady(true);
+    const shouldResetCheckIns = localStorage.getItem("gitgrow-checkins-reset-v1") !== "done";
+    setHabits(loaded.map(h => ({
+      ...h,
+      name: HABIT_TRANSLATIONS[h.name] || h.name,
+      category: CATEGORY_TRANSLATIONS[h.category] || h.category,
+      days: shouldResetCheckIns ? [] : h.days,
+    })));
+    if (shouldResetCheckIns) localStorage.setItem("gitgrow-checkins-reset-v1", "done");
+
+    const previousMessage = Number(localStorage.getItem("gitgrow-message-index"));
+    const availableMessages = CONSISTENCY_MESSAGES.map((_, index) => index).filter(index => index !== previousMessage);
+    const nextMessage = availableMessages[Math.floor(Math.random() * availableMessages.length)] ?? 0;
+    setConsistencyMessage(CONSISTENCY_MESSAGES[nextMessage]);
+    localStorage.setItem("gitgrow-message-index", String(nextMessage));
+    setNow(new Date());
+    setReady(true);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem("gitgrow-habits", JSON.stringify(habits)); }, [habits, ready]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     document.body.style.overflow = modal ? "hidden" : "";
     const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && closeModal();
@@ -120,8 +157,8 @@ export default function Home() {
 
       {activeTab === "today" && <>
       <section className="intro">
-        <div><p className="eyebrow">YOUR PROGRESS</p><h1>Good evening <span>👋</span></h1><p>Small steps, repeated daily, become meaningful change.</p></div>
-        <div className="dateBadge"><b>{new Intl.DateTimeFormat("en", { day: "numeric", month: "long" }).format(new Date())}</b><span>{new Intl.DateTimeFormat("en", { weekday: "long" }).format(new Date())}</span></div>
+        <div><p className="eyebrow">YOUR PROGRESS</p><h1>{greetingFor(now)} <span>👋</span></h1><p>{consistencyMessage}</p></div>
+        <div className="dateBadge"><b>{new Intl.DateTimeFormat("en", { day: "numeric", month: "long" }).format(now)}</b><span>{new Intl.DateTimeFormat("en", { weekday: "long" }).format(now)}</span></div>
       </section>
 
       <section className="stats">
