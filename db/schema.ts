@@ -1,4 +1,15 @@
-// Intentionally empty by default.
-// Add Drizzle tables here when the site actually needs a database.
-// See examples/d1/db/schema.ts for an opt-in example.
-export {};
+import { integer, sqliteTable, text, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(), email: text("email").notNull(), displayName: text("display_name").notNull(),
+  timezone: text("timezone").notNull().default("UTC"), preferences: text("preferences").notNull().default("[]"),
+  xpBalance: integer("xp_balance").notNull().default(0), lifetimeXp: integer("lifetime_xp").notNull().default(0),
+  importCompleted: integer("import_completed", { mode: "boolean" }).notNull().default(false), createdAt: text("created_at").notNull(),
+});
+export const profiles = sqliteTable("profiles", { userId: text("user_id").primaryKey(), name: text("name").notNull().default(""), age: text("age").notNull().default(""), weight: text("weight").notNull().default(""), height: text("height").notNull().default(""), goal: text("goal").notNull().default("") });
+export const habits = sqliteTable("habits", { id: text("id").primaryKey(), userId: text("user_id").notNull(), name: text("name").notNull(), category: text("category").notNull(), icon: text("icon").notNull(), color: text("color").notNull(), createdAt: text("created_at").notNull() }, t => [index("idx_habits_user").on(t.userId)]);
+export const checkins = sqliteTable("checkins", { id: text("id").primaryKey(), userId: text("user_id").notNull(), habitId: text("habit_id").notNull(), date: text("date").notNull(), createdAt: text("created_at").notNull() }, t => [uniqueIndex("uidx_checkins_user_habit_date").on(t.userId,t.habitId,t.date), index("idx_checkins_user_date").on(t.userId,t.date)]);
+export const xpAwards = sqliteTable("xp_awards", { id: text("id").primaryKey(), userId: text("user_id").notNull(), sourceType: text("source_type").notNull(), sourceId: text("source_id").notNull(), amount: integer("amount").notNull(), createdAt: text("created_at").notNull() }, t => [uniqueIndex("uidx_xp_awards_source").on(t.userId,t.sourceType,t.sourceId)]);
+export const xpEvents = sqliteTable("xp_events", { id: text("id").primaryKey(), userId: text("user_id").notNull(), sourceType: text("source_type").notNull(), sourceId: text("source_id").notNull(), amount: integer("amount").notNull(), createdAt: text("created_at").notNull() }, t => [index("idx_xp_events_user_created").on(t.userId,t.createdAt)]);
+export const questAssignments = sqliteTable("quest_assignments", { id: text("id").primaryKey(), userId: text("user_id").notNull(), questId: text("quest_id").notNull(), kind: text("kind").notNull(), localDate: text("local_date").notNull(), status: text("status").notNull().default("offered"), acceptedAt: text("accepted_at"), deadlineAt: text("deadline_at"), completedAt: text("completed_at"), proofId: text("proof_id") }, t => [uniqueIndex("uidx_quest_assignment").on(t.userId,t.questId,t.localDate), index("idx_quests_user_status").on(t.userId,t.status)]);
+export const proofs = sqliteTable("proofs", { id: text("id").primaryKey(), userId: text("user_id").notNull(), assignmentId: text("assignment_id").notNull(), kind: text("kind").notNull(), objectKey: text("object_key"), contentType: text("content_type"), size: integer("size"), latitude: text("latitude"), longitude: text("longitude"), accuracy: text("accuracy"), createdAt: text("created_at").notNull(), deletedAt: text("deleted_at") }, t => [index("idx_proofs_user_created").on(t.userId,t.createdAt)]);
