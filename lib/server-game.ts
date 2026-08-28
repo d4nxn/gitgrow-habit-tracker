@@ -3,6 +3,7 @@ import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { checkins, habits, profiles, proofs, questAssignments, users, xpEvents } from "@/db/schema";
 import { LANDMARK_QUESTS, dailyOffers, questById, unlockedTiles } from "@/lib/quests";
+import { LANDMARK_TILES, WORLD_ROUTE, reachableTiles, routeRank } from "@/lib/world-map";
 import type { ChatGPTUser } from "@/app/chatgpt-auth";
 
 export const nowIso=()=>new Date().toISOString();
@@ -37,9 +38,9 @@ export async function snapshot(userId:string){
  const date=localDate(user.timezone), recentSince=new Date(Date.now()-14*86400000).toISOString().slice(0,10), recent=assignmentRows.filter(a=>a.localDate>=recentSince).map(a=>a.questId);
  const offers=dailyOffers(userId,date,JSON.parse(user.preferences||"[]"),recent);
  for(const q of offers) await db.insert(questAssignments).values({id:crypto.randomUUID(),userId,questId:q.id,kind:"daily",localDate:date,status:"offered"}).onConflictDoNothing();
- const refreshed=await db.select().from(questAssignments).where(eq(questAssignments.userId,userId)); const unlocked=unlockedTiles(user.lifetimeXp);
- const landmarks=LANDMARK_QUESTS.map((q,i)=>({...q,tile:Math.floor(i/2)*6+(i%2?5:2),unlocked:Math.floor(i/2)*6+(i%2?5:2)<unlocked,status:refreshed.find(a=>a.questId===q.id)?.status??"available"}));
- return {user:{...user,preferences:JSON.parse(user.preferences||"[]"),unlockedTiles:unlocked},profile:profile[0],habits:habitRows.map(h=>({...h,days:checkRows.filter(c=>c.habitId===h.id).map(c=>c.date)})),daily:offers.map(q=>({...q,assignment:refreshed.find(a=>a.questId===q.id&&a.localDate===date)})),active:refreshed.filter(a=>a.status==="active").map(a=>({...a,quest:questById(a.questId)})),landmarks,proofs:proofRows.map(p=>({...p,objectKey:undefined}))};
+ const refreshed=await db.select().from(questAssignments).where(eq(questAssignments.userId,userId)); const unlocked=unlockedTiles(user.lifetimeXp); const currentTile=routeRank(user.worldPosition)>=0&&routeRank(user.worldPosition)<unlocked?user.worldPosition:(WORLD_ROUTE[Math.max(0,unlocked-1)]??WORLD_ROUTE[0]);
+ const landmarks=LANDMARK_QUESTS.map((q,i)=>{const tile=LANDMARK_TILES[i];return {...q,tile,unlocked:routeRank(tile)>=0&&routeRank(tile)<unlocked,status:refreshed.find(a=>a.questId===q.id)?.status??"available"}});
+ return {user:{...user,worldPosition:currentTile,preferences:JSON.parse(user.preferences||"[]"),unlockedTiles:unlocked},worldPosition:currentTile,currentTile,reachableTiles:reachableTiles(currentTile,unlocked),profile:profile[0],habits:habitRows.map(h=>({...h,days:checkRows.filter(c=>c.habitId===h.id).map(c=>c.date)})),daily:offers.map(q=>({...q,assignment:refreshed.find(a=>a.questId===q.id&&a.localDate===date)})),active:refreshed.filter(a=>a.status==="active").map(a=>({...a,quest:questById(a.questId)})),landmarks,proofs:proofRows.map(p=>({...p,objectKey:undefined}))};
 }
 export function r2(){ return (env as unknown as {PROOFS:R2Bucket}).PROOFS }
 export function distanceMeters(a:{lat:number,lng:number},b:{lat:number,lng:number}){ const R=6371e3,p1=a.lat*Math.PI/180,p2=b.lat*Math.PI/180,dp=(b.lat-a.lat)*Math.PI/180,dl=(b.lng-a.lng)*Math.PI/180; const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2; return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h)); }

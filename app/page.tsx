@@ -2,12 +2,13 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-to-interactive-role */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PLAYER_ASSET, WORLD_TILES, isNextTile, isTileUnlocked } from "@/lib/world-map";
 
 type Habit = { id: string; name: string; category: string; icon: string; color: string; days: string[] };
 type Tab = "today" | "map" | "activity" | "habits" | "profile";
 type Profile = { name: string; age: string; weight: string; height: string; goal: string };
 type Quest = { id:string; title:string; description:string; zone:string; proof:"photo"|"location"|"either"; kind:"daily"|"landmark"; tile?:number; unlocked?:boolean; status?:string; assignment?:{id:string;status:string;deadlineAt?:string}|null };
-type GameData = { user:{displayName:string;email:string;xpBalance:number;lifetimeXp:number;unlockedTiles:number;preferences:string[];importCompleted:boolean}; profile:Profile; habits:Habit[]; daily:Quest[]; active:Array<{id:string;status:string;deadlineAt?:string;quest:Quest}>; landmarks:Quest[]; proofs:Array<{id:string;kind:string;createdAt:string;questId?:string}> };
+type GameData = { user:{displayName:string;email:string;xpBalance:number;lifetimeXp:number;unlockedTiles:number;worldPosition:number;preferences:string[];importCompleted:boolean}; worldPosition:number; currentTile:number; reachableTiles:number[]; profile:Profile; habits:Habit[]; daily:Quest[]; active:Array<{id:string;status:string;deadlineAt?:string;quest:Quest}>; landmarks:Quest[]; proofs:Array<{id:string;kind:string;createdAt:string;questId?:string}> };
 
 const CATEGORIES = ["Health", "Growth", "Creativity", "Productivity", "Other"];
 const COLORS = ["#39d353", "#58a6ff", "#bc8cff", "#f2cc60", "#f778ba", "#ff7b72"];
@@ -58,10 +59,15 @@ export default function Home() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [questModal, setQuestModal] = useState<{assignmentId:string;quest:Quest}|null>(null);
+  const [mapMenuOpen, setMapMenuOpen] = useState(false);
+  const [mapZoom, setMapZoom] = useState(1);
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [now, setNow] = useState(new Date(0));
   const [consistencyMessage, setConsistencyMessage] = useState(CONSISTENCY_MESSAGES[0]);
   const heatWrapRef = useRef<HTMLDivElement>(null);
+  const mapViewportRef = useRef<HTMLDivElement>(null);
+  const mapBoardRef = useRef<HTMLDivElement>(null);
   const today = key(startOfDay());
 
   useEffect(() => {
@@ -93,6 +99,41 @@ export default function Home() {
       document.querySelectorAll<HTMLElement>(".habitHeatWrap").forEach(element => { element.scrollLeft = element.scrollWidth; });
     });
   }, [activeTab, habits.length]);
+  useEffect(() => {
+    if (activeTab !== "map" || !game) return;
+    setMapMenuOpen(false);
+    const centerOnPlayer = () => {
+      const viewport = mapViewportRef.current;
+      const board = mapBoardRef.current;
+      const playerTile = board?.querySelector<HTMLElement>(".worldTile.current");
+      if (!viewport || !board || !playerTile) return;
+      board.style.transition = "none";
+      board.style.transform = `translate(0px, 0px) scale(${mapZoom})`;
+      const viewportRect = viewport.getBoundingClientRect();
+      const baseRect = board.getBoundingClientRect();
+      const tileRect = playerTile.getBoundingClientRect();
+      const desiredPan = {
+        x: viewportRect.left + viewportRect.width / 2 - (tileRect.left + tileRect.width / 2),
+        y: viewportRect.top + viewportRect.height / 2 - (tileRect.top + tileRect.height / 2),
+      };
+      const clampPan = (value:number, start:number, size:number, viewportStart:number, viewportSize:number) => {
+        if (size < viewportSize) return value;
+        const minimum = viewportStart + viewportSize - (start + size);
+        const maximum = viewportStart - start;
+        return Math.min(maximum, Math.max(minimum, value));
+      };
+      const nextPan = {
+        x: clampPan(desiredPan.x, baseRect.left, baseRect.width, viewportRect.left, viewportRect.width),
+        y: clampPan(desiredPan.y, baseRect.top, baseRect.height, viewportRect.top, viewportRect.height),
+      };
+      setMapPan(nextPan);
+      board.style.transform = `translate(${nextPan.x}px, ${nextPan.y}px) scale(${mapZoom})`;
+      requestAnimationFrame(() => { if (mapBoardRef.current) mapBoardRef.current.style.transition = ""; });
+    };
+    const frame = requestAnimationFrame(centerOnPlayer);
+    window.addEventListener("resize", centerOnPlayer);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", centerOnPlayer); };
+  }, [activeTab, game?.currentTile, game?.user.unlockedTiles, mapZoom]);
 
   const visible = filter === "All habits" ? habits : habits.filter(h => h.category === filter);
   const days = useMemo(() => Array.from({ length: 364 }, (_, i) => addDays(startOfDay(), i - 363)), []);
@@ -104,6 +145,7 @@ export default function Home() {
   function applyGame(data:GameData){setGame(data);setHabits(data.habits);setProfile(data.profile);setReady(true);setError("");}
   async function loadGame(){try{const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC";const response=await fetch(`/api/bootstrap?timezone=${encodeURIComponent(timezone)}`,{cache:"no-store"});const body=await response.json();if(response.status===401){setSignIn(body.signIn);setReady(true);return}if(!response.ok)throw new Error(body.error||"Could not load GitGrow");applyGame(body)}catch(e){setError(e instanceof Error?e.message:"Could not load GitGrow");setReady(true)}}
   async function api(url:string,options:RequestInit={}){setBusy(true);setError("");try{const response=await fetch(url,{...options,headers:options.body instanceof FormData?options.headers:{"content-type":"application/json",...options.headers}});const body=await response.json();if(!response.ok)throw new Error(body.error||"Request failed");applyGame(body);return body}finally{setBusy(false)}}
+  async function moveTo(tile:number){if(!game?.reachableTiles.includes(tile))return;try{await api("/api/map/move",{method:"POST",body:JSON.stringify({tile})})}catch(e){setError(e instanceof Error?e.message:"Could not move on the map")}}
   async function toggle(id:string,date=today){try{await api("/api/checkins",{method:"POST",body:JSON.stringify({habitId:id,date})})}catch(e){setError(e instanceof Error?e.message:"Could not save check-in")}}
   function openNew() { setClosing(false); setSelected(null); setForm({ name: "", category: "Health", icon: "🎯", color: COLORS[0] }); setModal(true); }
   function openEdit(h: Habit) { setClosing(false); setSelected(h.id); setForm({ name: h.name, category: h.category, icon: h.icon, color: h.color }); setModal(true); }
@@ -125,7 +167,7 @@ export default function Home() {
 
   if (!ready) return <main className="loading">Loading your progress…</main>;
   if(signIn)return <main className="authScreen"><div className="brand"><span className="mark">◆</span><span>GitGrow</span></div><div className="authCard"><p className="eyebrow">YOUR ADVENTURE AWAITS</p><h1>Turn consistency into a world.</h1><p>Build habits, earn XP, reveal the map, and take on side quests.</p><a className="save" href={signIn}>Sign in with ChatGPT</a><small>Your progress stays private and syncs across devices.</small></div></main>;
-  return <main>
+  return <main className={activeTab === "map" ? "mapApp" : ""}>
     <header>
       <div className="brand"><span className="mark">◆</span><span>GitGrow</span></div>
       <button className="newButton" onClick={openNew}><span>＋</span> New habit</button>
@@ -169,13 +211,13 @@ export default function Home() {
       </section>
       </>}
 
-      {activeTab === "map" && game && <section className="mapSection tabPanel">
-        <div className="mapHero"><div><p className="eyebrow">THE CONSISTENCY MAP</p><h1>Reveal your world</h1><p>Every 100 lifetime XP clears one tile. Penalties reduce your balance, never your discoveries.</p></div><div className="mapXp"><b>{game.user.xpBalance}</b><span>current XP</span></div></div>
+      {activeTab === "map" && game && <section className="mapSection mapOnly tabPanel">
+        <div className="mapHero"><div><p className="eyebrow">THE CONSISTENCY MAP</p><h1>Reveal your world</h1><p>Move through the world one step at a time.</p></div><div className="mapTools"><div className="mapZoomControls" aria-label="Map zoom controls"><button type="button" aria-label="Zoom out" onClick={()=>setMapZoom(zoom=>Math.max(0.8,Number((zoom-0.2).toFixed(1))))}>−</button><button type="button" aria-label="Reset zoom" onClick={()=>setMapZoom(1)}>100%</button><button type="button" aria-label="Zoom in" onClick={()=>setMapZoom(zoom=>Math.min(1.8,Number((zoom+0.2).toFixed(1))))}>+</button></div><button className="mapMenuButton" aria-label="Open map menu" aria-expanded={mapMenuOpen} onClick={()=>setMapMenuOpen(open=>!open)}>•••</button>{mapMenuOpen&&<div className="mapMenu" role="menu"><strong>Map menu</strong><button role="menuitem" onClick={()=>{setMapMenuOpen(false);setActiveTab("today")}}>Today</button><button role="menuitem" onClick={()=>{setMapMenuOpen(false);setActiveTab("activity")}}>Activity</button><button role="menuitem" onClick={()=>{setMapMenuOpen(false);setActiveTab("habits")}}>Habits</button><button role="menuitem" onClick={()=>{setMapMenuOpen(false);setActiveTab("profile")}}>Profile</button><button role="menuitem" onClick={()=>{setMapMenuOpen(false);setMapZoom(1)}}>⌖ Center on me</button><button role="menuitem" onClick={()=>setMapMenuOpen(false)}>Close menu</button></div>}</div></div>
         {!game.user.preferences.length && <div className="onboarding"><h2>Choose your quest directions</h2><p>Select at least one. You can change these later in Profile.</p><div className="preferenceGrid">{["Fitness","Outdoors","Social","Courage","Creativity","Mindfulness"].map(zone=><button key={zone} onClick={()=>savePreferences([zone])}>{zone}</button>)}</div></div>}
         {!game.user.importCompleted && hasLocalImport && <div className="importCard"><div><b>Bring your existing progress</b><p>Import the habits and check-ins stored on this device once.</p></div><button onClick={importLocal}>Import</button></div>}
         <div className="dailyHeader"><div><h2>Today&apos;s side quests</h2><p>Choose one. Complete it for +40 XP or lose 25 XP at midnight.</p></div></div>
         <div className="questCards">{game.daily.map(q=><article className={q.assignment?.status==="active"?"activeQuest":""} key={q.id}><div className="questMeta"><span>{q.zone}</span><i>{q.proof}</i></div><h3>{q.title}</h3><p>{q.description}</p><div className="questReward"><b>+40 XP</b><span>missed −25 XP</span></div>{q.assignment?.status==="active"?<button onClick={()=>setQuestModal({assignmentId:q.assignment!.id,quest:q})}>Submit proof</button>:q.assignment?.status==="completed"?<button disabled>Completed</button>:<button disabled={busy||game.active.some(a=>a.quest?.kind==="daily")} onClick={()=>acceptQuest(q)}>Accept quest</button>}</article>)}</div>
-        <div className="worldGrid" aria-label="36 tile progress map">{Array.from({length:36},(_,tile)=>{const zone=Math.floor(tile/6),unlocked=tile<game.user.unlockedTiles,landmark=game.landmarks.find(q=>q.tile===tile);return <button key={tile} className={`worldTile ${unlocked?"revealed":"fog"} ${landmark?"landmark":""}`} disabled={!unlocked} onClick={()=>landmark&&unlocked&&(landmark.status==="active"?setQuestModal({assignmentId:game.active.find(a=>a.quest.id===landmark.id)?.id||"",quest:landmark}):acceptQuest(landmark))}><span>{unlocked?(landmark?"◆":String(tile+1)):"?"}</span><small>{["Fitness","Outdoors","Social","Courage","Creativity","Mindfulness"][zone]}</small></button>})}</div>
+        <div className="mapViewport" ref={mapViewportRef} aria-label="Interactive world map"><div className="worldMapFrame" ref={mapBoardRef} style={{transform:`translate(${mapPan.x}px, ${mapPan.y}px) scale(${mapZoom})`}}><div className="worldMapArt" aria-hidden="true" /><div className="worldGrid" aria-label="36 tile world map">{Array.from({length:36},(_,tile)=>{const unlocked=isTileUnlocked(tile,game.user.unlockedTiles),next=isNextTile(tile,game.user.unlockedTiles),current=tile===game.currentTile,reachable=game.reachableTiles.includes(tile),landmark=game.landmarks.find(q=>q.tile===tile),worldTile=WORLD_TILES[tile],completed=landmark?.status==="completed",objectIcons:Record<string,string>={palms:"🌴",waterfall:"💧",bridge:"🌉",campfire:"🔥",ruins:"🏛️",hut:"🛖",peak:"⛰️",volcano:"🌋",pines:"🌲",rocks:"🪨",river:"〰️",shell:"🐚"};return <button key={tile} data-tile={tile} aria-label={`${worldTile.label}, ${current?"your current position, ":""}${unlocked?"revealed":"covered by fog"}${landmark?`, landmark quest ${landmark.title}`:""}`} className={`worldTile ${unlocked?"revealed":"fog"} ${next?"next":""} ${current?"current":""} ${reachable?"reachable":""} ${landmark?"landmark":""} ${completed?"completed":""}`} disabled={!unlocked||(!current&&!reachable)} onClick={()=>{if(current&&landmark){if(landmark.status==="active")setQuestModal({assignmentId:game.active.find(a=>a.quest.id===landmark.id)?.id||"",quest:landmark});else if(!completed)acceptQuest(landmark)}else if(reachable)moveTo(tile)}}><span className="tileObject" aria-hidden="true">{unlocked?(landmark?(completed?"✓":"◆"):(worldTile.object?objectIcons[worldTile.object]:"•")):""}</span>{unlocked&&<small>{worldTile.label}</small>}{current&&<img className="mapPlayer" src={PLAYER_ASSET} alt="" aria-hidden="true" />}{current&&<i className="youAreHere">You</i>}</button>})}</div></div></div>
         <div className="zoneLegend">{["Fitness","Outdoors","Social","Courage","Creativity","Mindfulness"].map((z,i)=><span key={z}><i data-zone={i}/>{z}</span>)}</div>
       </section>}
 

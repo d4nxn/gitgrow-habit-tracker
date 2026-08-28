@@ -4,7 +4,7 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(), email: text("email").notNull(), displayName: text("display_name").notNull(),
   timezone: text("timezone").notNull().default("UTC"), preferences: text("preferences").notNull().default("[]"),
   xpBalance: integer("xp_balance").notNull().default(0), lifetimeXp: integer("lifetime_xp").notNull().default(0),
-  importCompleted: integer("import_completed", { mode: "boolean" }).notNull().default(false), createdAt: text("created_at").notNull(),
+  importCompleted: integer("import_completed", { mode: "boolean" }).notNull().default(false), worldPosition: integer("world_position").notNull().default(30), createdAt: text("created_at").notNull(),
 });
 export const profiles = sqliteTable("profiles", { userId: text("user_id").primaryKey(), name: text("name").notNull().default(""), age: text("age").notNull().default(""), weight: text("weight").notNull().default(""), height: text("height").notNull().default(""), goal: text("goal").notNull().default("") });
 export const habits = sqliteTable("habits", { id: text("id").primaryKey(), userId: text("user_id").notNull(), name: text("name").notNull(), category: text("category").notNull(), icon: text("icon").notNull(), color: text("color").notNull(), createdAt: text("created_at").notNull() }, t => [index("idx_habits_user").on(t.userId)]);

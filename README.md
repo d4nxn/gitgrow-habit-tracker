@@ -80,6 +80,11 @@ OAuth cookies, and identity header injection. Do not implement app routes for
 those reserved paths. Routes that do not import and call the helper remain
 anonymous-compatible.
 
+During local development (`NODE_ENV` is not `production`), the app uses a
+local-only demo identity (`Local Explorer`) when the hosting auth headers are
+not available. This makes the tracker and map testable at `localhost`; the
+fallback is disabled in production.
+
 SIWC establishes identity only; it does not prove workspace membership. Use the
 Sites hosting platform's access policy controls for workspace-wide restrictions,
 or enforce explicit server-side membership or allowlist checks.

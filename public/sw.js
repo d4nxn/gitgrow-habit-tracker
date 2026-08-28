@@ -1,5 +1,5 @@
-const CACHE = "gitgrow-v9";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/fonts/Gona.otf"];
+const CACHE = "gitgrow-v10";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/fonts/Gona.otf", "/world-map-v2.png", "/map/player-v1.png", "/map/fog-v1.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
@@ -25,6 +25,20 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match("/"))
+    );
+    return;
+  }
+
+  // Styles and scripts must update immediately after a deployment. Fall back to
+  // the cache only when the device is offline.
+  if (event.request.destination === "style" || event.request.destination === "script") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) caches.open(CACHE).then((cache) => cache.put(event.request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
