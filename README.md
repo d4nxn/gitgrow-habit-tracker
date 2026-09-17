@@ -1,105 +1,76 @@
-# vinext-starter
+# GitGrow
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+A personal habit-tracking prototype that turns daily consistency into an exploration game. Track habits, earn XP, accept quests and unlock a walkable world map.
 
-## Prerequisites
+## Project context
 
-- Node.js `>=22.13.0`
+This is a personal learning and **AI-assisted / vibe-coded prototype** by Maksim Hutsau. The application was built using AI-generated code. It demonstrates exploring an idea with AI tools, not independently authoring every component or production-level expertise in its stack.
 
-## Quick Start
+## Implemented features
 
-```bash
-npm install
-npm run dev
-npm run build
+- Habit creation, daily check-ins, activity history and streak visualisation.
+- Profile preferences and user-specific data.
+- XP rewards, daily quests and one-time landmark quests.
+- A 36-tile world map with progression and movement rules.
+- Photo or location evidence for quests, with cloud storage bindings.
+- Import support for earlier local data.
+- Web app manifest, icons and service worker.
+- Tests for map adjacency, unlock limits, non-negative penalties and daily quest selection.
+
+## Stack
+
+React 19, TypeScript, vinext/Vite with Next.js-style App Router routes, Cloudflare Workers, D1 (SQLite), R2, Drizzle ORM, Tailwind CSS and the Node.js test runner.
+
+## Local development
+
+Requires Node.js **22.13.0 or newer** and pnpm.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-This starter does not use `wrangler.jsonc`.
+Open the local URL printed by the server. Development simulates Cloudflare bindings declared in `.openai/hosting.json`; local state stays in the ignored `.wrangler` directory.
 
-## Included Shape
+The database needs the tables from `drizzle/0000_marvelous_vapor.sql` and `drizzle/0001_world_position.sql`. Apply these migrations in order to the local D1 binding using your Cloudflare development setup. Production data and storage are not included.
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+```sh
+pnpm build
+pnpm test
+pnpm lint
 
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+# Game-rule tests only; no cloud services required
+node --experimental-strip-types --test tests/game-rules.test.mjs
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+`pnpm test` builds the application before running the game-rule tests.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## Repository map
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+| Path | Purpose |
+| --- | --- |
+| `app/page.tsx` | Main tracker interface |
+| `app/api/` | Habit, check-in, quest, map and profile endpoints |
+| `lib/quests.ts` | Quest definitions and progression rules |
+| `lib/world-map.ts` | Map route and movement helpers |
+| `lib/server-game.ts` | Server-side game state and persistence |
+| `db/` and `drizzle/` | Schema, database access and migrations |
+| `tests/game-rules.test.mjs` | Focused game-logic tests |
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Authentication and deployment
 
-During local development (`NODE_ENV` is not `production`), the app uses a
-local-only demo identity (`Local Explorer`) when the hosting auth headers are
-not available. This makes the tracker and map testable at `localhost`; the
-fallback is disabled in production.
+The hosted version uses identity headers supplied by the hosting platform. `app/chatgpt-auth.ts` provides a local demo identity in development; this fallback is disabled in production. A standalone production deployment needs a trusted authentication layer and configured D1/R2 bindings. Do not accept identity headers directly from untrusted clients.
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+The checked-in hosting configuration contains binding names and a project identifier, not credentials. Keep credentials in platform secret storage or ignored environment files.
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## Limitations
 
-## Useful Commands
+- Experimental prototype, not an independently audited production service.
+- Tests cover selected game rules, not the complete UI, API or authentication flow.
+- Setup depends on compatible Cloudflare tooling and database migrations.
+- Photo and location features involve personal data; use test data when evaluating the project.
+- Publication alone does not grant an open-source licence; third-party packages and assets retain their applicable terms.
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## Author
 
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+[Maksim Hutsau](https://github.com/d4nxn) - IT technician graduate exploring Python, web applications and practical uses of AI.
